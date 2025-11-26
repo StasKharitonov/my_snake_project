@@ -33,24 +33,19 @@ SPEED = 20
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 
 # Заголовок окна игрового поля:
-pygame.display.set_caption("Змейка")
+pygame.display.set_caption('Змейка')
 
 # Настройка времени:
 clock = pygame.time.Clock()
 
 
-# Тут опишите все классы игры.
 class GameObject:
     """Основной класс."""
 
-    def __init__(self, position=None, body_color=None):
+    def __init__(self, body_color=None):
         """Инициализация родительского класса."""
         self.body_color = body_color
-
-        if position is None:
-            self.position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        else:
-            self.position = position
+        self.position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 
     def draw(self):
         """Отрисовка объектов для переопределения в дочерних классах."""
@@ -60,26 +55,29 @@ class GameObject:
 class Apple(GameObject):
     """Дочерний класс 'Яблоко'."""
 
-    def __init__(self, position=None, body_color=None):
-        """Инициализация дочернего класса дял работы с объектом 'Яблоко'."""
-        if body_color is None:
-            body_color = APPLE_COLOR
-        if position is None:
-            position = self.randomize_position()
-        super().__init__(position, body_color)
+    def __init__(self, occupied_positions=None):
+        """Инициализация дочернего класса для работы с объектом 'Яблоко'."""
+        super().__init__(APPLE_COLOR)
+        self.randomize_position(occupied_positions or [])
 
-    @classmethod
-    def randomize_position(cls):
+    def randomize_position(self, occupied_positions):
         """Случайное размещение яблока на поле."""
-        height_list = [
-            square for square in range(SCREEN_HEIGHT) if square % GRID_SIZE == 0
-        ]
-        width_list = [
-            square for square in range(SCREEN_WIDTH) if square % GRID_SIZE == 0
-        ]
-        height = choice(height_list)
-        width = choice(width_list)
-        return (width, height)
+        while True:
+            height_list = [
+                square for square in range(SCREEN_HEIGHT)
+                if square % GRID_SIZE == 0
+            ]
+            width_list = [
+                square for square in range(SCREEN_WIDTH)
+                if square % GRID_SIZE == 0
+            ]
+            height = choice(height_list)
+            width = choice(width_list)
+            position = (width, height)
+
+            if position not in occupied_positions:
+                self.position = position
+                break
 
     def draw(self):
         """Отрисовка яблока."""
@@ -91,69 +89,66 @@ class Apple(GameObject):
 class Snake(GameObject):
     """Дочерний класс 'Змейка'."""
 
-    def __init__(self, position=None, body_color=None):
-        """Инициализация дочернего класса дял работы с объектом 'Змейка'."""
-        if body_color is None:
-            body_color = SNAKE_COLOR
-        if position is None:
-            position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        super().__init__(position, body_color)
-        self.length = 1
-        self.positions = [position]
-        self.direction = RIGHT
-        self.next_direction = None
-        self.last = None
+    def __init__(self):
+        """Инициализация дочернего класса для работы с объектом 'Змейка'."""
+        super().__init__(SNAKE_COLOR)
+        self.position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+        self.reset()
 
     def update_direction(self):
-        """Метод обновления направления после нажатия на кнопку"""
+        """Метод обновления направления после нажатия на кнопку."""
         if self.next_direction:
             self.direction = self.next_direction
             self.next_direction = None
 
     def move(self):
-        """Движение змейки"""
+        """Движение змейки."""
         self.update_direction()
-
-        if self.positions:
-            self.last = self.positions[-1]
-
         head_x, head_y = self.get_head_position()
-        dx, dy = self.direction
-        new_x = (head_x + GRID_SIZE * dx) % SCREEN_WIDTH
-        new_y = (head_y + GRID_SIZE * dy) % SCREEN_HEIGHT
-        new_position = (new_x, new_y)
+        coord_x, coord_y = self.direction
+        new_position = (
+            (head_x + GRID_SIZE * coord_x) % SCREEN_WIDTH,
+            (head_y + GRID_SIZE * coord_y) % SCREEN_HEIGHT,
+        )
         self.positions.insert(0, new_position)
-
         if len(self.positions) > self.length:
-            self.positions.pop()
+            self.last = self.positions.pop()
+        else:
+            self.last = None
 
     def draw(self):
         """Отрисовка змейки."""
         for position in self.positions:
-            rect = pygame.Rect(position, (GRID_SIZE, GRID_SIZE))
+            rect = pygame.Rect(
+                position,
+                (GRID_SIZE, GRID_SIZE)
+            )
             pygame.draw.rect(screen, self.body_color, rect)
             pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
 
-        head_rect = pygame.Rect(self.positions[0], (GRID_SIZE, GRID_SIZE))
+        head_rect = pygame.Rect(
+            self.get_head_position(),
+            (GRID_SIZE, GRID_SIZE)
+        )
         pygame.draw.rect(screen, self.body_color, head_rect)
         pygame.draw.rect(screen, BORDER_COLOR, head_rect, 1)
 
         if self.last:
-            last_rect = pygame.Rect(self.last, (GRID_SIZE, GRID_SIZE))
+            last_rect = pygame.Rect(
+                self.last,
+                (GRID_SIZE, GRID_SIZE)
+            )
             pygame.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
 
     def get_head_position(self):
-        """Определение позиции головы змейки"""
-        if self.positions:
-            return self.positions[0]
-        else:
-            return self.position
+        """Определение позиции головы змейки."""
+        return self.positions[0]
 
     def reset(self):
         """Сброс состояния змейки."""
         self.length = 1
         self.positions = [self.position]
-        self.direction = RIGHT
+        self.direction = choice([UP, DOWN, LEFT, RIGHT])
         self.next_direction = None
         self.last = None
 
@@ -177,26 +172,24 @@ def handle_keys(game_object):
 
 def main():
     """Основная игра."""
-
     pygame.init()
-    # Тут нужно создать экземпляры классов.
     snake = Snake()
-    apple = Apple()
+    apple = Apple(snake.positions)
     while True:
         clock.tick(SPEED)
         handle_keys(snake)
         snake.move()
         if snake.get_head_position() == apple.position:
             snake.length += 1
-            apple = Apple()
-        if snake.get_head_position() in snake.positions[1:]:
+            apple.randomize_position(snake.positions)
+        elif snake.get_head_position() in snake.positions[1:]:
             snake.reset()
-            apple = Apple()
-        screen.fill(BOARD_BACKGROUND_COLOR)
+            apple.randomize_position(snake.positions)
+            screen.fill(BOARD_BACKGROUND_COLOR)
         apple.draw()
         snake.draw()
         pygame.display.update()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
